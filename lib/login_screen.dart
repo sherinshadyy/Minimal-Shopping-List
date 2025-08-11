@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'home_screen.dart';  // Make sure this file exists and HomeScreen takes a username param
+import 'home_screen.dart';  
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
