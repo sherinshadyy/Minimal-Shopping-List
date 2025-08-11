@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'notificatons_screen.dart';
 
 import 'account_info_screen.dart';
 import 'detail_screen.dart'; // Your existing detail screen
@@ -121,7 +122,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onTap: _navigateToReport,
               ),
-              
+              ListTile(
+              leading: const Icon(Icons.notifications, color: Colors.white),
+              title: const Text(
+                'Notifications',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                );
+  },
+),
+
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.white),
                 title: const Text(
