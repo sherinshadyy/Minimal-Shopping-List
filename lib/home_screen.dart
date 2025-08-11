@@ -7,6 +7,7 @@ import 'report_screen.dart';
 import 'add_category_screen.dart';
 import 'add_item_screen.dart';
 import 'view_items_screen.dart';
+import 'login_screen.dart'; // Added import for LoginScreen
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -61,17 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings navigation or functionality here
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Settings tapped')));
-            },
-          ),
-        ],
+        // Removed the settings icon from actions here
       ),
       drawer: Drawer(
         child: Container(
@@ -130,16 +121,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 onTap: _navigateToReport,
               ),
+              
               ListTile(
-                leading: const Icon(Icons.settings, color: Colors.white),
+                leading: const Icon(Icons.logout, color: Colors.white),
                 title: const Text(
-                  'Settings',
+                  'Logout',
                   style: TextStyle(color: Colors.white),
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Settings tapped')),
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('logged_in_username');
+
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false,
                   );
                 },
               ),
