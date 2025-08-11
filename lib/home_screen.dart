@@ -3,12 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'notificatons_screen.dart';
 
 import 'account_info_screen.dart';
-import 'detail_screen.dart'; // Your existing detail screen
+import 'detail_screen.dart'; 
 import 'report_screen.dart';
 import 'add_category_screen.dart';
 import 'add_item_screen.dart';
 import 'view_items_screen.dart';
-import 'login_screen.dart'; // Added import for LoginScreen
+import 'login_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   final String username;
@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        // Removed the settings icon from actions here
+       
       ),
       drawer: Drawer(
         child: Container(
