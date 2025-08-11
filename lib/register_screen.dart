@@ -1,3 +1,5 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   double _age = 25;
   String? _country;
   List<String> _countries = [];
+  bool _isLoadingCountries = true; // <-- loading flag
 
   final _formKey = GlobalKey<FormState>();
 
@@ -29,43 +32,94 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _fetchCountries() async {
-    List<String> subsetCountries = [
-      'United States',
-      'Canada',
-      'Egypt',
-      'UAE',
-      'United Kingdom',
-      'Australia',
-      'India',
-      'Germany',
-      'France',
-      'Japan',
-      'China',
-      'Brazil',
-      'South Africa'
-    ];
-
     setState(() {
-      _countries = subsetCountries;
-      _countries.sort();
-      _country = _countries.isNotEmpty ? _countries[0] : null;
+      _isLoadingCountries = true;
     });
+
+    try {
+      final response = await http.get(Uri.parse('https://restcountries.com/v3.1/all'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        List<String> fetchedCountries = data
+            .map((country) => country['name']['common'] as String)
+            .toList();
+        fetchedCountries.sort();
+
+        setState(() {
+          _countries = fetchedCountries;
+          _country = _countries.isNotEmpty ? _countries[0] : null;
+        });
+      } else {
+        throw Exception('Failed to load countries');
+      }
+    } catch (e) {
+      List<String> fallbackCountries = [
+        'United States',
+        'Canada',
+        'Egypt',
+        'UAE',
+        'United Kingdom',
+        'Australia',
+        'India',
+        'Germany',
+        'France',
+        'Japan',
+        'China',
+        'Brazil',
+        'South Africa'
+      ];
+      fallbackCountries.sort();
+
+      setState(() {
+        _countries = fallbackCountries;
+        _country = _countries.isNotEmpty ? _countries[0] : null;
+      });
+    } finally {
+      setState(() {
+        _isLoadingCountries = false;
+      });
+    }
   }
 
   Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      final prefs = await SharedPreferences.getInstance();
+    if (!_formKey.currentState!.validate()) return;
 
-      await prefs.setString('username', _usernameController.text.trim());
-      await prefs.setString('password', _passwordController.text.trim());
+    final prefs = await SharedPreferences.getInstance();
+    String newUsername = _usernameController.text.trim();
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(username: _usernameController.text.trim()),
-        ),
+    List<String> usersList = prefs.getStringList('users') ?? [];
+
+    bool usernameExists = usersList.any((userJson) {
+      final userMap = json.decode(userJson);
+      return userMap['username'] == newUsername;
+    });
+
+    if (usernameExists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username already exists. Please choose another.')),
       );
+      return;
     }
+
+    Map<String, dynamic> newUser = {
+      'name': _nameController.text.trim(),
+      'username': newUsername,
+      'password': _passwordController.text.trim(),
+      'age': _age.round(),
+      'country': _country,
+    };
+
+    usersList.add(json.encode(newUser));
+    await prefs.setStringList('users', usersList);
+
+    await prefs.setString('logged_in_username', newUsername);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(username: newUsername),
+      ),
+    );
   }
 
   String? _validateNotEmpty(String? value, String fieldName) {
@@ -77,7 +131,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Pistachio gradient and orange accent same as login/home
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF5B7B3F), // pistachio dark
@@ -121,8 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 15),
                   _buildPasswordField(_passwordController, 'Password', Icons.lock, (val) => _validateNotEmpty(val, 'Password')),
                   const SizedBox(height: 15),
-                  Text('Age: ${_age.round()}',
-                      style: const TextStyle(color: Color(0xFFEF7E48), fontSize: 18)),
+                  Text('Age: ${_age.round()}', style: const TextStyle(color: Color(0xFFEF7E48), fontSize: 18)),
                   Slider(
                     value: _age,
                     min: 15,
@@ -137,14 +189,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 10),
-                  _buildCountryDropdown(),
+
+                  // Show loading indicator or dropdown:
+                  _isLoadingCountries
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildCountryDropdown(),
+
                   if (_country == null)
                     const Padding(
                       padding: EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Country is required',
-                        style: TextStyle(color: Colors.red),
-                      ),
+                      child: Text('Country is required', style: TextStyle(color: Colors.red)),
                     ),
                   const SizedBox(height: 25),
                   Center(
@@ -152,18 +206,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: _register,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF7E48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         padding: const EdgeInsets.symmetric(horizontal: 90, vertical: 16),
                       ),
                       child: const Text(
                         'Register',
-                        style: TextStyle(
-                          fontSize: 20,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -186,10 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
       ),
     );
   }
@@ -205,10 +250,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
       ),
     );
   }
@@ -216,21 +258,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildCountryDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
       child: DropdownButtonFormField<String>(
         value: _country,
         icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF5B7B3F)),
         isExpanded: true,
         decoration: const InputDecoration(border: InputBorder.none),
-        items: _countries.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
+        items: _countries.map((value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
         onChanged: (newValue) {
           setState(() {
             _country = newValue!;

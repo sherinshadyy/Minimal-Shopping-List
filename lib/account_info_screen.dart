@@ -13,14 +13,37 @@ class AccountInfoScreen extends StatefulWidget {
 class _AccountInfoScreenState extends State<AccountInfoScreen> {
   late TextEditingController _usernameController;
   late TextEditingController _passwordController;
+  late TextEditingController _nameController;
+  double _age = 25;
+  String? _country;
+
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+
+  List<String> _countries = [
+    'United States', 'Canada', 'Egypt', 'UAE', 'United Kingdom',
+    'Australia', 'India', 'Germany', 'France', 'Japan', 'China',
+    'Brazil', 'South Africa'
+  ];
 
   @override
   void initState() {
     super.initState();
     _usernameController = TextEditingController(text: widget.username);
     _passwordController = TextEditingController();
+    _nameController = TextEditingController();
+    _loadUserInfo();
+    _countries.sort();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nameController.text = prefs.getString('name') ?? '';
+      _age = prefs.getInt('age')?.toDouble() ?? 25;
+      _country = prefs.getString('country') ?? _countries.first;
+      _usernameController.text = prefs.getString('username') ?? widget.username;
+    });
   }
 
   Future<void> _saveChanges() async {
@@ -31,6 +54,11 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
     });
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('name', _nameController.text.trim());
+    await prefs.setInt('age', _age.round());
+    if (_country != null) {
+      await prefs.setString('country', _country!);
+    }
     await prefs.setString('username', _usernameController.text.trim());
     if (_passwordController.text.trim().isNotEmpty) {
       await prefs.setString('password', _passwordController.text.trim());
@@ -81,11 +109,13 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                 ),
               ),
               const SizedBox(height: 30),
+
+              // Name
               TextFormField(
-                controller: _usernameController,
+                controller: _nameController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Username',
+                  labelText: 'Name',
                   labelStyle: const TextStyle(color: Colors.white70),
                   filled: true,
                   fillColor: Colors.white24,
@@ -95,9 +125,30 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                       borderSide: BorderSide.none),
                 ),
                 validator: (val) =>
+                    (val == null || val.trim().isEmpty) ? 'Name cannot be empty' : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Username
+              TextFormField(
+                controller: _usernameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  filled: true,
+                  fillColor: Colors.white24,
+                  prefixIcon: const Icon(Icons.alternate_email, color: Colors.white70),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none),
+                ),
+                validator: (val) =>
                     (val == null || val.trim().isEmpty) ? 'Username cannot be empty' : null,
               ),
               const SizedBox(height: 20),
+
+              // Password
               TextFormField(
                 controller: _passwordController,
                 style: const TextStyle(color: Colors.white),
@@ -119,7 +170,61 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 20),
+
+              // Age slider & label
+              Text('Age: ${_age.round()}',
+                  style: const TextStyle(color: Color(0xFFEF7E48), fontSize: 18)),
+              Slider(
+                value: _age,
+                min: 15,
+                max: 100,
+                divisions: 85,
+                activeColor: accentOrange,
+                inactiveColor: const Color(0xFFB7C798),
+                onChanged: (double value) {
+                  setState(() {
+                    _age = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+
+              // Country dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: _country,
+                  icon: Icon(Icons.arrow_drop_down, color: Colors.white70),
+                  dropdownColor: primaryGreen,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(border: InputBorder.none),
+                  items: _countries.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      _country = newValue!;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select a country';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+
               const SizedBox(height: 40),
+
               ElevatedButton(
                 onPressed: _loading ? null : _saveChanges,
                 style: ElevatedButton.styleFrom(
